@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Orçamento - Telecontrol{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1>Sistema de Orçamento - Telecontrol</h1>
+            {% if session.user_id %}
+            <nav class="nav">
+                <span>Bem-vindo, {{ session.nome }} ({{ session.estado }})</span>
+                <a href="{{ url_for('produtos.listar') }}">Produtos</a>
+                <a href="{{ url_for('orcamento.criar') }}">Orçamento</a>
+                <a href="{{ url_for('auth.logout') }}">Sair</a>
+            </nav>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Telecontrol - Sistema de Orçamento</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/orcamento.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

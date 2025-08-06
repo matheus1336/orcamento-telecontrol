@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Criar Orçamento - Sistema de Orçamento{% endblock %}
+
+{% block content %}
+<div class="orcamento-container">
+    <h2>Criar Orçamento</h2>
+    
+    <div id="produtos-orcamento">
+        <!-- Produtos serão carregados via JavaScript -->
+    </div>
+    
+    <div class="acoes-orcamento">
+        <button id="btn-calcular" class="btn btn-primary">Calcular Orçamento</button>
+        <button id="btn-voltar" class="btn btn-secondary">Voltar aos Produtos</button>
+    </div>
+    
+    <div id="resultado-orcamento" style="display: none;">
+        <!-- Resultado será mostrado aqui -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let produtosOrcamento = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    const produtos = sessionStorage.getItem('produtos-orcamento');
+    if (produtos) {
+        produtosOrcamento = JSON.parse(produtos);
+        exibirProdutosOrcamento();
+    } else {
+        window.location.href = '/produtos';
+    }
+});
+
+function exibirProdutosOrcamento() {
+    const container = document.getElementById('produtos-orcamento');
+    container.innerHTML = '<h3>Produtos Selecionados:</h3>';
+    
+    produtosOrcamento.forEach((produto, index) => {
+        const div = document.createElement('div');
+        div.className = 'produto-orcamento';
+        div.innerHTML = `
+            <div class="produto-info">
+                <strong>${produto.codigo}</strong>
+                <div class="produto-campos">
+                    <label>Quantidade: 
+                        <input type="number" value="${produto.quantidade}" min="1" 
+                               onchange="atualizarProduto(${index}, 'quantidade', this.value)">
+                    </label>
+                    <label>Frete (%): 
+                        <input type="number" value="${produto.frete}" min="0" step="0.1" 
+                               onchange="atualizarProduto(${index}, 'frete', this.value)">
+                    </label>
+                    <label>Markup (%): 
+                        <input type="number" value="${produto.markup}" min="0" step="0.1" 
+                               onchange="atualizarProduto(${index}, 'markup', this.value)">
+                    </label>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function atualizarProduto(index, campo, valor) {
+    produtosOrcamento[index][campo] = parseFloat(valor) || 0;
+}
+
+document.getElementById('btn-calcular').addEventListener('click', function() {
+    fetch('/api/orcamento/calcular', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            produtos: produtosOrcamento
+        })
+    })
+    .then(response => response.json())
+    .then(orcamento => {
+        exibirResultado(orcamento);
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao calcular orçamento');
+    });
+});
+
+function exibirResultado(orcamento) {
+    const container = document.getElementById('resultado-orcamento');
+    
+    let html = `
+        <div class="orcamento-resultado">
+            <h3>Orçamento Calculado</h3>
+            <div class="vendedor-info">
+                <p><strong>Vendedor:</strong> ${orcamento.vendedor.nome}</p>
+                <p><strong>Estado:</strong> ${orcamento.vendedor.estado}</p>
+                <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+            </div>
+            
+            <table class="tabela-orcamento">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descrição</th>
+                        <th>Qtd</th>
+                        <th>Preço Base</th>
+                        <th>Tributos</th>
+                        <th>Frete</th>
+                        <th>Markup</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    orcamento.itens.forEach(item => {
+        html += `
+            <tr>
+                <td>${item.codigo}</td>
+                <td>${item.descricao}</td>
+                <td>${item.quantidade} ${item.unidade}</td>
+                <td>R$ ${item.preco_base_total.toFixed(2)}</td>
+                <td>R$ ${item.tributos.total.toFixed(2)}</td>
+                <td>R$ ${item.valor_frete.toFixed(2)} (${item.percentual_frete}%)</td>
+                <td>R$ ${item.valor_markup.toFixed(2)} (${item.percentual_markup}%)</td>
+                <td>R$ ${item.preco_final_total.toFixed(2)}</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+            
+            <div class="totais-orcamento">
+                <div class="total-item">
+                    <strong>Subtotal Produtos: R$ ${orcamento.totais.subtotal_produtos.toFixed(2)}</strong>
+                </div>
+                <div class="total-item">
+                    Total Tributos: R$ ${orcamento.totais.total_tributos.toFixed(2)}
+                </div>
+                <div class="total-item">
+                    Total Frete: R$ ${orcamento.totais.total_frete.toFixed(2)}
+                </div>
+                <div class="total-item">
+                    Total Markup: R$ ${orcamento.totais.total_markup.toFixed(2)}
+                </div>
+                <div class="total-final">
+                    <strong>TOTAL GERAL: R$ ${orcamento.totais.total_geral.toFixed(2)}</strong>
+                </div>
+            </div>
+            
+            <div class="acoes-resultado">
+                <button onclick="window.print()" class="btn btn-primary">Imprimir</button>
+                <button onclick="novoOrcamento()" class="btn btn-secondary">Novo Orçamento</button>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+    container.style.display = 'block';
+}
+
+function novoOrcamento() {
+    sessionStorage.removeItem('produtos-orcamento');
+    window.location.href = '/produtos';
+}
+
+document.getElementById('btn-voltar').addEventListener('click', function() {
+    window.location.href = '/produtos';
+});
+</script>
+{% endblock %}

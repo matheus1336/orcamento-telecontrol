@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Produtos - Sistema de Orçamento{% endblock %}
+
+{% block content %}
+<div class="produtos-container">
+    <h2>Selecionar Produtos</h2>
+    
+    <div class="busca-container">
+        <input type="text" id="busca-produto" placeholder="Buscar por código ou descrição...">
+        <button id="btn-buscar">Buscar</button>
+    </div>
+    
+    <div class="produtos-grid" id="produtos-grid">
+        <!-- Produtos serão carregados via JavaScript -->
+    </div>
+    
+    <div class="produtos-selecionados">
+        <h3>Produtos Selecionados</h3>
+        <div id="lista-selecionados">
+            <!-- Lista de produtos selecionados -->
+        </div>
+        
+        <button id="btn-criar-orcamento" class="btn btn-success" disabled>
+            Criar Orçamento
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Buscar produtos
+document.getElementById('btn-buscar').addEventListener('click', buscarProdutos);
+document.getElementById('busca-produto').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') buscarProdutos();
+});
+
+let produtosSelecionados = [];
+
+function buscarProdutos() {
+    const termo = document.getElementById('busca-produto').value;
+    
+    fetch(`/api/produtos/buscar?termo=${encodeURIComponent(termo)}`)
+        .then(response => response.json())
+        .then(produtos => {
+            const grid = document.getElementById('produtos-grid');
+            grid.innerHTML = '';
+            
+            produtos.forEach(produto => {
+                const card = createProdutoCard(produto);
+                grid.appendChild(card);
+            });
+        })
+        .catch(error => console.error('Erro:', error));
+}
+
+function createProdutoCard(produto) {
+    const div = document.createElement('div');
+    div.className = 'produto-card';
+    div.innerHTML = `
+        <h4>${produto.CODIGO_PRODUTO}</h4>
+        <p>${produto.DESCRICAO}</p>
+        <p class="preco">R$ ${parseFloat(produto.PRECO_BASE).toFixed(2)}</p>
+        <p class="tributos">ST: ${produto.ST_PERCENTAGE || 0}% | IPI: ${produto.IPI_PERCENTAGE || 0}%</p>
+        <button onclick="selecionarProduto('${produto.CODIGO_PRODUTO}')" class="btn btn-primary">
+            Selecionar
+        </button>
+    `;
+    return div;
+}
+
+function selecionarProduto(codigo) {
+    if (!produtosSelecionados.find(p => p.codigo === codigo)) {
+        produtosSelecionados.push({
+            codigo: codigo,
+            quantidade: 1,
+            frete: 0,
+            markup: 0
+        });
+        atualizarListaSelecionados();
+    }
+}
+
+function atualizarListaSelecionados() {
+    const lista = document.getElementById('lista-selecionados');
+    lista.innerHTML = '';
+    
+    produtosSelecionados.forEach((produto, index) => {
+        const div = document.createElement('div');
+        div.className = 'produto-selecionado';
+        div.innerHTML = `
+            <span>${produto.codigo}</span>
+            <input type="number" value="${produto.quantidade}" min="1" 
+                   onchange="atualizarQuantidade(${index}, this.value)">
+            <input type="number" value="${produto.frete}" min="0" step="0.1" 
+                   placeholder="Frete %" onchange="atualizarFrete(${index}, this.value)">
+            <input type="number" value="${produto.markup}" min="0" step="0.1" 
+                   placeholder="Markup %" onchange="atualizarMarkup(${index}, this.value)">
+            <button onclick="removerProduto(${index})" class="btn btn-danger">Remover</button>
+        `;
+        lista.appendChild(div);
+    });
+    
+    document.getElementById('btn-criar-orcamento').disabled = produtosSelecionados.length === 0;
+}
+
+function atualizarQuantidade(index, quantidade) {
+    produtosSelecionados[index].quantidade = parseFloat(quantidade);
+}
+
+function atualizarFrete(index, frete) {
+    produtosSelecionados[index].frete = parseFloat(frete);
+}
+
+function atualizarMarkup(index, markup) {
+    produtosSelecionados[index].markup = parseFloat(markup);
+}
+
+function removerProduto(index) {
+    produtosSelecionados.splice(index, 1);
+    atualizarListaSelecionados();
+}
+
+document.getElementById('btn-criar-orcamento').addEventListener('click', function() {
+    sessionStorage.setItem('produtos-orcamento', JSON.stringify(produtosSelecionados));
+    window.location.href = '/orcamento';
+});
+
+// Carregar produtos inicialmente
+buscarProdutos();
+</script>
+{% endblock %}
